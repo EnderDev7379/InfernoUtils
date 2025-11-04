@@ -6,7 +6,9 @@ public class InfernoConfig {
         return """
                     # Semi-Hardcore
                     
-                    ban_time=8h # How long the death ban should last | Default=8h
+                    # How long the death ban should last | Default=8h
+                    ban_time=8h
+                    
                     # What Death/Damage Types shouldn't cause a ban, comma seperated list
                     # For possible values and their explanations check out https://minecraft.wiki/w/Damage_type#List_of_damage_types
                     # Append minecraft: everytwhere
