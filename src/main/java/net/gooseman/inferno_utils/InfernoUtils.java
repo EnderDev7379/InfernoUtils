@@ -1,7 +1,5 @@
 package net.gooseman.inferno_utils;
 
-import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.api.ModInitializer;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
@@ -11,7 +9,6 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Items;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.world.GameMode;
@@ -46,22 +43,24 @@ public class InfernoUtils implements ModInitializer {
 
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, damageSource) -> {
 			if (entity instanceof PlayerEntity playerEntity) {
-				playerEntity.sendMessage(Text.of("booo hooo, let me play a sad song for you on the world's smallest violin"), false);
 				String deathTypeId = damageSource.getTypeRegistryEntry().getIdAsString();
 				Entity attacker = damageSource.getAttacker();
 				List<String> banExclusions = List.of(InfernoConfig.getStringArray("ban_exclusions"));
 				if ((attacker instanceof PlayerEntity || !banExclusions.contains(deathTypeId)) && attacker != entity) {
 					MinecraftServer server = playerEntity.getServer();
+					String command = null;
                     try {
-						String command = "tempban " + playerEntity.getDisplayName().getString() + " " + InfernoConfig.config.getOrDefault("ban_time", "10s");
+						command = "tempban " + playerEntity.getDisplayName().getString() + " " + InfernoConfig.config.getOrDefault("ban_time", "10s") + " You have died! If this death was not caused by a player (either directly or via trap), or you think it was otherwise unfair, please contact the moderators through the #tickets discord channel.";
                         server.getCommandSource().getDispatcher().execute(command, server.getCommandSource());
                     } catch (Exception e) {
 						playerEntity.sendMessage(Text.of("An error occured, please contact the server owner"), false);
 						LOGGER.error("Couldn't tempban player on death!");
-						LOGGER.error("Exception Message: " + e.getMessage());
+                        LOGGER.error("Exception Message: {}", e.getMessage());
+						if (command != null) LOGGER.error("Executed Command: {}", command);
                     }
                 }
 			}
 		});
+
 	}
 }
