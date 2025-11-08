@@ -11,6 +11,7 @@ import net.gooseman.inferno_utils.config.InfernoConfig;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.block.CropBlock;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.player.PlayerEntity;
@@ -88,16 +89,25 @@ public class InfernoUtils implements ModInitializer {
 			BlockState blockState = world.getBlockState(blockPos);
 			ItemStack heldItem = player.getStackInHand(hand);
 			if (heldItem.isIn(ItemTags.HOES) && blockState.isIn(ModTags.BlockTags.FARMABLE)) {
-				if (blockState.isOf(Blocks.NETHER_WART) || blockState.isOf(Blocks.BEETROOTS))
+				if (blockState.isOf(Blocks.NETHER_WART) || blockState.isOf(Blocks.BEETROOTS)) {
 					if (blockState.get(Properties.AGE_3) != 3) return ActionResult.PASS;
-				else if (blockState.get(Properties.AGE_7) != 7) return ActionResult.PASS;
+				} else if (blockState.get(Properties.AGE_7) != 7) return ActionResult.PASS;
 
 				heldItem.damage(1, player, hand);
+
 				Block.getDroppedStacks(blockState, serverWorld, blockPos, null, player, heldItem).forEach(stack -> Block.dropStack(world, blockPos, (stack.isOf(Items.WHEAT) || stack.isOf(Items.BEETROOT) ? stack : stack.copyWithCount(stack.getCount() - 1))));
 				blockState.onStacksDropped(serverWorld, blockPos, heldItem, true);
+
 				serverWorld.setBlockState(blockPos, blockState.getBlock().getDefaultState());
 				serverWorld.emitGameEvent(player, GameEvent.BLOCK_DESTROY, blockPos);
 				serverWorld.playSound(null, blockPos, SoundEvents.BLOCK_CROP_BREAK, SoundCategory.BLOCKS);
+				return ActionResult.SUCCESS_SERVER;
+			}
+
+			if (heldItem.isIn(ItemTags.SHOVELS) && blockState.isOf(Blocks.DIRT_PATH)) {
+				heldItem.damage(1, serverPlayer, hand);
+				serverWorld.setBlockState(blockPos, Blocks.DIRT.getDefaultState());
+				serverWorld.playSound(null, blockPos, SoundEvents.ITEM_SHOVEL_FLATTEN, SoundCategory.BLOCKS);
 				return ActionResult.SUCCESS_SERVER;
 			}
 
