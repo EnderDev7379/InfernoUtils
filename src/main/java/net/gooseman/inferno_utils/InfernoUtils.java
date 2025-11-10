@@ -5,17 +5,20 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.gooseman.inferno_utils.config.InfernoConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.ItemTags;
+import net.minecraft.world.BossEvent;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -31,8 +34,10 @@ import net.minecraft.world.level.gameevent.GameEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 
 public class InfernoUtils implements ModInitializer {
 	public static final String MOD_ID = "inferno_utils";
@@ -44,8 +49,11 @@ public class InfernoUtils implements ModInitializer {
 
 	public static HashMap<String, Long> playerCombatTracker = new HashMap<>();
 
-	public List<String> probableTraps = List.of(new String[]{"bad_respawn_point", "falling_anvil", "falling_stalactite", "fireworks", "stalagmite"});
-	public List<EntityType<?>> explosionExclusion = List.of(new EntityType<?>[]{EntityType.CREEPER, EntityType.GHAST, EntityType.ENDER_DRAGON, EntityType.WITHER, EntityType.END_CRYSTAL});
+	public static List<String> probableTraps = List.of(new String[]{"bad_respawn_point", "falling_anvil", "falling_stalactite", "fireworks", "stalagmite"});
+	public static List<EntityType<?>> explosionExclusion = List.of(new EntityType<?>[]{EntityType.CREEPER, EntityType.GHAST, EntityType.ENDER_DRAGON, EntityType.WITHER, EntityType.END_CRYSTAL});
+
+	public static HashMap<UUID, ServerBossEvent> combatBossEvents = new HashMap<>();
+	public static HashMap<UUID, UUID> playerCombatBossEvents = new HashMap<>();
 
 	public void temporaryBan(Player playerEntity, String timeKey, String reasonKey) {
 		InfernoConfig.reloadConfig();
@@ -115,10 +123,27 @@ public class InfernoUtils implements ModInitializer {
 		});
 
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamageTaken, damageTaken, blocked) -> {
-			if (entity instanceof Player victim && source.getEntity() instanceof Player attacker && victim != attacker) {
+			if (entity instanceof ServerPlayer victim && source.getEntity() instanceof ServerPlayer attacker && victim != attacker && !attacker.getWeaponItem().isEmpty()) {
 				long currentTime = entity.level().getGameTime();
 				playerCombatTracker.put(victim.getStringUUID(), currentTime);
 				playerCombatTracker.put(attacker.getStringUUID(), currentTime);
+
+				List<UUID> forRemoval = new ArrayList<>();
+				combatBossEvents.forEach(((uuid, serverBossEvent) -> {
+					serverBossEvent.removePlayer(victim);
+					serverBossEvent.removePlayer(attacker);
+					if (serverBossEvent.getPlayers().isEmpty())
+						forRemoval.add(uuid);
+				}));
+				forRemoval.forEach(uuid -> combatBossEvents.remove(uuid));
+
+				ServerBossEvent combatBossEvent = new ServerBossEvent(Component.literal("In Combat"), BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_20);
+				combatBossEvents.put(combatBossEvent.getId(), combatBossEvent);
+
+				combatBossEvent.addPlayer(victim);
+				playerCombatBossEvents.put(victim.getUUID(), combatBossEvent.getId());
+				combatBossEvent.addPlayer(attacker);
+				playerCombatBossEvents.put(attacker.getUUID(), combatBossEvent.getId());
 			}
 		});
 
@@ -160,6 +185,18 @@ public class InfernoUtils implements ModInitializer {
 				temporaryBan(player, "death_ban_time", "death_ban_reason");
 			}
 		}));
+
+		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			List<UUID> forRemoval = new ArrayList<>();
+			combatBossEvents.forEach(((uuid, serverBossEvent) -> {
+				serverBossEvent.setProgress(serverBossEvent.getProgress() - 0.0025f);
+				if (serverBossEvent.getProgress() <= 0f) {
+				   	serverBossEvent.removeAllPlayers();
+					forRemoval.add(uuid);
+				}
+			}));
+			forRemoval.forEach(uuid -> combatBossEvents.remove(uuid));
+		});
 
 		ServerLifecycleEvents.SERVER_STOPPING.register((server) -> playerCombatTracker.clear());
 	}
