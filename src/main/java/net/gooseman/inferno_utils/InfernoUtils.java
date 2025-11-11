@@ -28,7 +28,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.FarmBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.gameevent.GameEvent;
@@ -87,6 +86,10 @@ public class InfernoUtils implements ModInitializer {
 			ItemStack heldItem = player.getItemInHand(hand);
 			if (heldItem.is(Items.FIREWORK_ROCKET))
 				return InteractionResult.FAIL;
+
+			if (heldItem.is(Items.WAXED_WEATHERED_COPPER_GRATE)) {
+				InfernoConfig.reloadConfig();
+			}
 
 			return InteractionResult.PASS;
 		});
