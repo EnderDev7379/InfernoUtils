@@ -8,6 +8,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import net.gooseman.inferno_utils.command.InfernoUtilsCommand;
 import net.gooseman.inferno_utils.config.InfernoConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -80,16 +81,15 @@ public class InfernoUtils implements ModInitializer {
 
 		InfernoConfig.reloadConfig();
 
+		InfernoUtilsCommand.register();
+
+
 		UseItemCallback.EVENT.register((player, level, hand) -> {
 			if (!(level instanceof ServerLevel serverWorld) || !(player instanceof ServerPlayer serverPlayer) || player.gameMode() == GameType.SPECTATOR) return InteractionResult.PASS;
 
 			ItemStack heldItem = player.getItemInHand(hand);
 			if (heldItem.is(Items.FIREWORK_ROCKET))
 				return InteractionResult.FAIL;
-
-			if (heldItem.is(Items.WAXED_WEATHERED_COPPER_GRATE)) {
-				InfernoConfig.reloadConfig();
-			}
 
 			return InteractionResult.PASS;
 		});
